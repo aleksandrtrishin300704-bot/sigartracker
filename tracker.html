@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Трекер">
+<meta name="theme-color" content="#000000">
+<title>Трекер</title>
+<style>
+:root{
+  --bg:#000; --fg:#fff;
+  --line:rgba(255,255,255,.22);
+  --line2:rgba(255,255,255,.10);
+  --dim:rgba(255,255,255,.45);
+  --mono:ui-monospace,"SF Mono",Menlo,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;
+}
+.inv{ --bg:#fff; --fg:#000;
+  --line:rgba(0,0,0,.28); --line2:rgba(0,0,0,.12); --dim:rgba(0,0,0,.5);
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{background:var(--bg);color:var(--fg)}
+body{
+  font-family:var(--sans);
+  -webkit-user-select:none;user-select:none;
+  touch-action:manipulation;
+  -webkit-font-smoothing:antialiased;
+  padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  overscroll-behavior:none;
+}
+.wrap{max-width:520px;margin:0 auto;padding:0 18px 40px}
+.lbl{font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--dim);font-weight:500}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+hr{border:0;border-top:1px solid var(--line2);margin:0}
+
+/* header */
+header{display:flex;justify-content:space-between;align-items:baseline;padding:16px 0 12px;border-bottom:1px solid var(--line)}
+header .t{font-size:11px;letter-spacing:.2em;text-transform:uppercase;font-weight:600}
+#clock{font-size:11px}
+#invert{background:none;border:1px solid var(--line);color:var(--fg);width:22px;height:22px;border-radius:50%;
+  font-size:0;position:relative;overflow:hidden;flex:none;margin-left:10px}
+#invert::before{content:"";position:absolute;inset:0;background:var(--fg);clip-path:polygon(0 0,50% 0,50% 100%,0 100%)}
+.hrow{display:flex;align-items:center;gap:10px}
+
+/* counter */
+.count{padding:26px 0 18px;text-align:center}
+.big{font-family:var(--mono);font-size:84px;line-height:.9;font-weight:500;font-variant-numeric:tabular-nums}
+.big .of{font-size:22px;color:var(--dim);vertical-align:super;letter-spacing:0}
+.count .lbl{margin-top:12px;display:block}
+
+/* segments */
+#segs{display:flex;flex-wrap:wrap;gap:3px;margin:16px 0 0}
+#segs i{flex:1 1 8px;min-width:5px;height:14px;border:1px solid var(--line);display:block}
+#segs i.on{background:var(--fg);border-color:var(--fg)}
+#segs i.over{border-color:var(--fg);background:repeating-linear-gradient(45deg,var(--fg) 0 2px,transparent 2px 4px)}
+
+/* stat grid */
+.grid{display:grid;grid-template-columns:1fr 1fr 1fr;border-top:1px solid var(--line)}
+.grid>div{padding:14px 0 16px;border-right:1px solid var(--line2)}
+.grid>div:last-child{border-right:0}
+.grid .v{font-family:var(--mono);font-size:20px;margin-top:6px;font-variant-numeric:tabular-nums}
+.grid .lbl{font-size:9px}
+.pair{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--line)}
+.pair>div{padding:16px 0 18px;border-right:1px solid var(--line2)}
+.pair>div:last-child{border-right:0}
+.pair .v{font-family:var(--mono);font-size:30px;margin-top:8px;font-variant-numeric:tabular-nums}
+
+/* button */
+#add{width:100%;height:76px;margin:22px 0 8px;background:var(--fg);color:var(--bg);border:0;
+  font-family:var(--sans);font-size:15px;letter-spacing:.24em;text-transform:uppercase;font-weight:600;cursor:pointer}
+#add:active{opacity:.55}
+#add.locked{background:transparent;color:var(--fg);border:1px solid var(--line)}
+#undo{width:100%;height:40px;background:none;border:1px solid var(--line2);color:var(--dim);
+  font-family:var(--sans);font-size:10px;letter-spacing:.2em;text-transform:uppercase}
+#undo:active{opacity:.5}
+
+/* sections */
+section.blk{padding:26px 0 0;border-top:1px solid var(--line);margin-top:26px}
+.shead{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.tabs{display:flex;gap:0;border:1px solid var(--line2)}
+.tabs button{background:none;border:0;color:var(--dim);font-family:var(--sans);
+  font-size:9px;letter-spacing:.14em;padding:5px 9px;text-transform:uppercase}
+.tabs button.a{background:var(--fg);color:var(--bg)}
+
+/* tape */
+.tape{position:relative;height:56px;border-left:1px solid var(--line);border-right:1px solid var(--line);margin-bottom:6px}
+.tape .base{position:absolute;left:0;right:0;bottom:0;border-bottom:1px solid var(--line2)}
+.tape .q{position:absolute;top:0;bottom:0;border-left:1px solid var(--line2)}
+.tape .m{position:absolute;bottom:0;width:1px;height:100%;background:var(--fg)}
+.tape .now{position:absolute;top:0;bottom:0;width:1px;background:var(--fg);opacity:.35}
+.tape .now::after{content:"";position:absolute;top:-3px;left:-2px;width:5px;height:5px;background:var(--fg)}
+.axis{display:flex;justify-content:space-between}
+.axis span{font-family:var(--mono);font-size:9px;color:var(--dim)}
+
+/* charts */
+.chart{display:flex;align-items:flex-end;gap:2px;height:92px;border-bottom:1px solid var(--line)}
+.chart .col{flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%}
+.chart .col b{display:block;background:var(--fg);width:100%;min-height:1px}
+.chart .col.pk b{background:var(--fg)}
+.chart .col.pk{position:relative}
+.chart .col.pk::after{content:"";position:absolute;top:-1px;left:0;right:0;height:3px;background:var(--fg)}
+.chart .col.z b{background:var(--line2);height:1px!important}
+.xax{display:flex;gap:2px;margin-top:5px}
+.xax span{flex:1;text-align:center;font-family:var(--mono);font-size:8px;color:var(--dim)}
+.dchart{position:relative}
+.limline{position:absolute;left:0;right:0;border-top:1px dashed var(--line);pointer-events:none}
+.limtag{position:absolute;right:0;transform:translateY(-100%);font-family:var(--mono);font-size:8px;color:var(--dim);padding-bottom:2px}
+.dchart .col b{background:var(--fg)}
+.dchart .col.ov b{background:repeating-linear-gradient(45deg,var(--fg) 0 3px,transparent 3px 6px);outline:1px solid var(--fg);outline-offset:-1px}
+
+/* settings */
+.set{display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-bottom:1px solid var(--line2)}
+.set input{background:none;border:0;border-bottom:1px solid var(--line);color:var(--fg);
+  font-family:var(--mono);font-size:17px;width:72px;text-align:right;padding:2px 0;-webkit-user-select:text;user-select:text}
+.set input:focus{outline:0;border-bottom-color:var(--fg)}
+.mini{width:100%;background:none;border:1px solid var(--line2);color:var(--dim);
+  font-family:var(--sans);font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;padding:11px 0;margin-top:12px}
+.mini:active{opacity:.5}
+textarea{width:100%;height:110px;background:none;border:1px solid var(--line2);color:var(--dim);
+  font-family:var(--mono);font-size:10px;padding:8px;margin-top:12px;-webkit-user-select:text;user-select:text;resize:none}
+.foot{margin-top:26px;font-size:9.5px;letter-spacing:.06em;color:var(--dim);line-height:1.7;text-align:center}
+.hide{display:none}
+@media (prefers-reduced-motion:no-preference){
+  .flash{animation:fl .28s ease-out}
+  @keyframes fl{from{opacity:.15}to{opacity:1}}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <span class="t">Трекер</span>
+    <div class="hrow">
+      <span class="lbl">Сутки 08:00→08:00 МСК</span>
+      <span class="num" id="clock">--:--</span>
+      <button id="invert" aria-label="Инвертировать"></button>
+    </div>
+  </header>
+
+  <div class="count">
+    <div class="big"><span id="cnt">0</span><span class="of" id="lim">/10</span></div>
+    <span class="lbl" id="daylbl">сегодня</span>
+    <div id="segs"></div>
+  </div>
+
+  <div class="grid">
+    <div><span class="lbl">Осталось</span><div class="v num" id="left">—</div></div>
+    <div><span class="lbl">Прогноз</span><div class="v num" id="proj">—</div></div>
+    <div><span class="lbl">Ср. интервал</span><div class="v num" id="avg">—</div></div>
+  </div>
+
+  <div class="pair">
+    <div><span class="lbl">С последней</span><div class="v num" id="since">—</div></div>
+    <div><span class="lbl">Следующая через</span><div class="v num" id="next">—</div></div>
+  </div>
+
+  <button id="add">+ 1 сигарета</button>
+  <button id="undo">Отменить последнюю</button>
+
+  <section class="blk">
+    <div class="shead"><span class="lbl">Лента суток</span><span class="lbl" id="tapeinfo">—</span></div>
+    <div class="tape" id="tape"><div class="base"></div></div>
+    <div class="axis"><span>08</span><span>14</span><span>20</span><span>02</span><span>08</span></div>
+  </section>
+
+  <section class="blk">
+    <div class="shead">
+      <span class="lbl">Часы пика</span>
+      <div class="tabs" id="rtabs">
+        <button data-r="1">Сег</button><button data-r="7">7д</button><button data-r="30" class="a">30д</button><button data-r="0">Всё</button>
+      </div>
+    </div>
+    <div class="chart" id="hchart"></div>
+    <div class="xax" id="hax"></div>
+    <div class="grid" style="margin-top:18px">
+      <div><span class="lbl">Пик</span><div class="v num" id="peak">—</div></div>
+      <div><span class="lbl">В сутки</span><div class="v num" id="perday">—</div></div>
+      <div><span class="lbl">Всего</span><div class="v num" id="total">—</div></div>
+    </div>
+  </section>
+
+  <section class="blk">
+    <div class="shead"><span class="lbl">Последние 14 суток</span><span class="lbl" id="streak">—</span></div>
+    <div class="chart dchart" id="dchart"><div class="limline" id="limline"><span class="limtag" id="limtag"></span></div></div>
+    <div class="xax" id="dax"></div>
+  </section>
+
+  <section class="blk">
+    <div class="shead"><span class="lbl">Настройки</span></div>
+    <div class="set"><span class="lbl">Дневной лимит</span><input id="inlim" type="number" inputmode="numeric" min="1" max="80"></div>
+    <div class="set"><span class="lbl">Цена пачки (20 шт)</span><input id="inprice" type="number" inputmode="decimal" min="0"></div>
+    <div class="set"><span class="lbl">Потрачено за 30 суток</span><span class="num" id="spent" style="font-size:17px">—</span></div>
+    <button class="mini" id="exp">Показать / перенести данные</button>
+    <div id="expbox" class="hide">
+      <textarea id="json" spellcheck="false"></textarea>
+      <button class="mini" id="imp">Загрузить из поля выше</button>
+    </div>
+    <button class="mini" id="wipe">Стереть всё</button>
+    <div class="foot">Данные хранятся только на этом устройстве.<br>Поделиться → «На экран Домой» — откроется как приложение.</div>
+  </section>
+
+</div>
+
+<script>
+(function(){
+"use strict";
+var DAY=86400000, HOUR=3600000, MSK=3*HOUR, CUT=8*HOUR, OFF=CUT-MSK; // 5ч
+var KEY="cig_v1", mem=null, S;
+
+function load(){
+  var d={limit:10,price:0,log:[],inv:false,range:30};
+  try{var r=localStorage.getItem(KEY); if(r){var p=JSON.parse(r); for(var k in d) if(p[k]!==undefined) d[k]=p[k];}}
+  catch(e){ if(mem) d=mem; }
+  return d;
+}
+function save(){ mem=S; try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){} }
+
+function dkey(t){ return Math.floor((t-OFF)/DAY); }
+function dstart(k){ return k*DAY+OFF; }
+function mskDate(t){ return new Date(t+MSK); }
+function pad(n){ return (n<10?"0":"")+n; }
+function hhmm(t){ var d=mskDate(t); return pad(d.getUTCHours())+":"+pad(d.getUTCMinutes()); }
+function dur(ms){
+  if(ms<0) ms=0;
+  var s=Math.floor(ms/1000), h=Math.floor(s/3600), m=Math.floor(s%3600/60), ss=s%60;
+  if(h>0) return h+"ч "+pad(m)+"м";
+  return m+"м "+pad(ss)+"с";
+}
+function durShort(ms){
+  var m=Math.round(ms/60000);
+  if(m>=60) return Math.floor(m/60)+"ч "+pad(m%60)+"м";
+  return m+"м";
+}
+function $(id){ return document.getElementById(id); }
+
+var today, tlog;
+function recompute(){
+  today=dkey(Date.now());
+  tlog=S.log.filter(function(t){return dkey(t)===today;}).sort(function(a,b){return a-b;});
+}
+
+/* ---------- render ---------- */
+function render(){
+  recompute();
+  var n=tlog.length, L=S.limit, now=Date.now(), t0=dstart(today), t1=t0+DAY;
+
+  $("cnt").textContent=n;
+  $("lim").textContent="/"+L;
+  var d=mskDate(t0);
+  $("daylbl").textContent="сутки от "+pad(d.getUTCDate())+"."+pad(d.getUTCMonth()+1);
+
+  // segments
+  var segs="", total=Math.max(L,n);
+  for(var i=0;i<total;i++){
+    segs+= i<n ? (i<L?'<i class="on"></i>':'<i class="over"></i>') : '<i></i>';
+  }
+  $("segs").innerHTML=segs;
+
+  // stats
+  var left=L-n;
+  $("left").textContent = left>=0 ? left : "+"+(-left);
+  var el=now-t0;
+  $("proj").textContent = (n>0 && el>HOUR) ? Math.round(n/el*DAY) : "—";
+  if(n>1){
+    var gaps=0; for(var j=1;j<n;j++) gaps+=tlog[j]-tlog[j-1];
+    $("avg").textContent=durShort(gaps/(n-1));
+  } else $("avg").textContent="—";
+
+  drawTape(t0,t1,now);
+  drawHours();
+  drawDays();
+
+  $("inlim").value=L;
+  $("inprice").value=S.price||"";
+  var c30=S.log.filter(function(t){return dkey(t)>today-30;}).length;
+  $("spent").textContent = S.price ? Math.round(c30*S.price/20) : "—";
+
+  tick();
+}
+
+function drawTape(t0,t1,now){
+  var el=$("tape");
+  el.innerHTML='<div class="base"></div>';
+  [.25,.5,.75].forEach(function(p){
+    var q=document.createElement("div"); q.className="q"; q.style.left=(p*100)+"%"; el.appendChild(q);
+  });
+  tlog.forEach(function(t){
+    var m=document.createElement("div"); m.className="m";
+    m.style.left=((t-t0)/DAY*100)+"%"; el.appendChild(m);
+  });
+  if(now<t1){
+    var nw=document.createElement("div"); nw.className="now";
+    nw.style.left=((now-t0)/DAY*100)+"%"; el.appendChild(nw);
+  }
+  if(tlog.length){
+    var mx=0,mi=1e15;
+    for(var j=1;j<tlog.length;j++){var g=tlog[j]-tlog[j-1]; if(g>mx)mx=g; if(g<mi)mi=g;}
+    $("tapeinfo").textContent = tlog.length>1 ? ("макс "+durShort(mx)+" · мин "+durShort(mi)) : ("первая "+hhmm(tlog[0]));
+  } else $("tapeinfo").textContent="пусто";
+}
+
+function drawHours(){
+  var R=S.range, from = R? today-R+1 : -1e9;
+  var buckets=new Array(24).fill(0), days={}, tot=0;
+  S.log.forEach(function(t){
+    var k=dkey(t); if(k<from) return;
+    buckets[mskDate(t).getUTCHours()]++; days[k]=1; tot++;
+  });
+  var mx=Math.max.apply(null,buckets)||1;
+  var pk=buckets.indexOf(mx);
+  var h="",x="";
+  for(var i=0;i<24;i++){
+    var hr=(8+i)%24, v=buckets[hr];
+    h+='<div class="col'+(v===0?' z':'')+(v===mx&&v>0?' pk':'')+'"><b style="height:'+(v/mx*100)+'%"></b></div>';
+    x+='<span>'+(i%4===0?pad(hr):"")+'</span>';
+  }
+  $("hchart").innerHTML=h; $("hax").innerHTML=x;
+  var nd=Object.keys(days).length;
+  $("peak").textContent = tot? pad(pk)+":00" : "—";
+  $("perday").textContent = nd? (tot/nd).toFixed(1) : "—";
+  $("total").textContent = tot;
+}
+
+function drawDays(){
+  var N=14, counts=[], mx=S.limit;
+  for(var i=N-1;i>=0;i--){
+    var k=today-i, c=S.log.filter(function(t){return dkey(t)===k;}).length;
+    counts.push({k:k,c:c}); if(c>mx) mx=c;
+  }
+  var h="",x="";
+  counts.forEach(function(o,i){
+    h+='<div class="col'+(o.c>S.limit?' ov':'')+(o.c===0?' z':'')+'"><b style="height:'+(o.c/mx*100)+'%"></b></div>';
+    var dd=mskDate(dstart(o.k));
+    x+='<span>'+((i%3===1||i===N-1)?pad(dd.getUTCDate()):"")+'</span>';
+  });
+  var c=$("dchart");
+  c.innerHTML=h+'<div class="limline" id="limline"><span class="limtag">'+S.limit+'</span></div>';
+  $("limline").style.bottom=(S.limit/mx*100)+"%";
+  $("dax").innerHTML=x;
+
+  // серия суток в пределах лимита (не считая текущие)
+  var st=0, first=S.log.length? dkey(Math.min.apply(null,S.log)) : today;
+  for(var k=today-1;k>=first;k--){
+    var cc=S.log.filter(function(t){return dkey(t)===k;}).length;
+    if(cc<=S.limit) st++; else break;
+  }
+  $("streak").textContent = st? ("серия "+st+" "+(st%10===1&&st%100!==11?"сутки":"сут.")+" в лимите") : "серия 0";
+}
+
+/* ---------- live tick ---------- */
+function tick(){
+  var now=Date.now();
+  if(dkey(now)!==today){ render(); return; }
+  var d=mskDate(now);
+  $("clock").textContent=pad(d.getUTCHours())+":"+pad(d.getUTCMinutes());
+
+  var n=tlog.length, last=n?tlog[n-1]:null;
+  $("since").textContent = last? dur(now-last) : "—";
+
+  var t1=dstart(today)+DAY, left=S.limit-n, btn=$("add");
+  if(left<=0){
+    $("next").textContent="лимит";
+    btn.classList.add("locked"); btn.textContent="лимит исчерпан · +1";
+  } else if(!last){
+    $("next").textContent="можно";
+    btn.classList.remove("locked"); btn.textContent="+ 1 сигарета";
+  } else {
+    var target=(t1-now)/left, nxt=last+target-now;
+    $("next").textContent = nxt>0 ? dur(nxt) : "можно";
+    btn.classList.remove("locked"); btn.textContent="+ 1 сигарета";
+  }
+}
+
+/* ---------- actions ---------- */
+$("add").addEventListener("click",function(){
+  S.log.push(Date.now()); save(); render();
+  var b=$("cnt"); b.classList.remove("flash"); void b.offsetWidth; b.classList.add("flash");
+  if(navigator.vibrate) navigator.vibrate(12);
+});
+$("undo").addEventListener("click",function(){
+  recompute(); if(!tlog.length) return;
+  var last=tlog[tlog.length-1];
+  S.log.splice(S.log.lastIndexOf(last),1); save(); render();
+});
+$("inlim").addEventListener("change",function(){
+  var v=parseInt(this.value,10); if(!v||v<1) v=1; if(v>80) v=80;
+  S.limit=v; save(); render(); this.blur();
+});
+$("inprice").addEventListener("change",function(){
+  S.price=parseFloat(this.value)||0; save(); render(); this.blur();
+});
+$("invert").addEventListener("click",function(){
+  S.inv=!S.inv; document.body.classList.toggle("inv",S.inv);
+  document.querySelector('meta[name=theme-color]').setAttribute("content",S.inv?"#ffffff":"#000000");
+  save();
+});
+$("rtabs").addEventListener("click",function(e){
+  var b=e.target.closest("button"); if(!b) return;
+  S.range=parseInt(b.dataset.r,10); save();
+  [].forEach.call(this.children,function(c){c.classList.toggle("a",c===b);});
+  drawHours();
+});
+$("exp").addEventListener("click",function(){
+  var box=$("expbox"); box.classList.toggle("hide");
+  if(!box.classList.contains("hide")) $("json").value=JSON.stringify(S);
+});
+$("imp").addEventListener("click",function(){
+  try{
+    var p=JSON.parse($("json").value);
+    if(!p||!Array.isArray(p.log)) throw 0;
+    S.log=p.log.map(Number).filter(function(x){return x>0;});
+    if(p.limit) S.limit=p.limit; if(p.price!==undefined) S.price=p.price;
+    save(); render(); $("expbox").classList.add("hide");
+  }catch(e){ $("json").value="Не похоже на данные трекера. Вставьте текст из поля экспорта целиком."; }
+});
+$("wipe").addEventListener("click",function(){
+  if(confirm("Стереть всю историю? Отменить нельзя.")){ S.log=[]; save(); render(); }
+});
+
+/* ---------- boot ---------- */
+S=load();
+if(S.inv) document.body.classList.add("inv");
+[].forEach.call($("rtabs").children,function(c){ c.classList.toggle("a", parseInt(c.dataset.r,10)===S.range); });
+render();
+setInterval(tick,1000);
+document.addEventListener("visibilitychange",function(){ if(!document.hidden) render(); });
+})();
+</script>
+</body>
+</html>
